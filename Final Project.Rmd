@@ -1,0 +1,1345 @@
+---
+title: "Where Should I Take a Ski Vacation?"
+author: "Michael Wasserstein"
+date: "5/12/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      warning = FALSE,
+                      message = FALSE,
+                      cache = TRUE)
+# Load the relevant libraries
+setwd("~/Desktop/Middlebury/MATH216/DataSets/")
+library(tidyverse)
+library(geojsonio)
+library(leaflet)
+library(stringr)
+library(rvest)
+library(data.table)
+library(scales) 
+library(knitr) 
+```
+```{r, include=FALSE}
+setwd("~/Desktop/Middlebury/MATH216/DataSets/")
+resort_names <- data.frame(Resort = c('Sun Valley', 'Deer Valley Resort', 'Whitefish Mountain Resort',
+                                      'Taos Ski Valley', 'Aspen Snowmass', 'Telluride', 'Steamboat', 'Beaver Creek',
+                                      'Crested Butte Mountain Resort', 'Park City', 'Breckenridge',
+                                      'Jackson Hole', 'Vail','Winter Park', 'Arapahoe Basin Ski Area','Keystone',
+                                      'Mammoth Mountain','Heavenly', 'Big Sky','Alta Ski Area',
+                                      'Copper Mountain','Squaw Valley Alpine Meadows','Snowbird',
+                                      'Grand Targhee Resort','Solitude Mountain Resort','Loveland'))
+
+
+resorts <- read_csv('Resorts.csv')
+resort_df <- resorts
+
+resort_df$`Resort Name` <- gsub(",.*","\\1",resort_df$`Resort Name`)
+
+states <- read_csv('states.csv')
+
+for(i in states$State){
+  resort_df <- resort_df %>%
+    mutate(`Resort Name` = str_replace_all(resort_df$`Resort Name`, i, ''))
+}
+
+resort_df$`Resort Name` <- substr(resort_df$`Resort Name`,1,nchar(resort_df$`Resort Name`)-1)
+
+resort_df <- resort_df[resort_df$`Resort Name` %in% resort_names$Resort ,]
+
+
+
+
+
+
+resort_df <- resort_df %>%
+  select(-`Open Acreage`)
+
+resort_df <- resort_df %>%
+  mutate(Pass = c('Ikon Pass', 'Ikon Pass', 'Ikon Pass',
+                  'Epic Pass', 'Ikon Pass', 'Epic Pass', 'Ikon Pass', 'Epic Pass',
+                  'Ikon Pass', 'Grand Targhee', 'Epic Pass',
+                  'Ikon Pass', 'Epic Pass','Loveland', 'Ikon Pass','Epic Pass',
+                  'Ikon Pass','Ikon Pass', 'Ikon Pass','Ikon Pass',
+                  'Epic Pass','Ikon Pass','Epic Pass',
+                  'Epic Pass','Whitefish','Ikon Pass'))
+
+pass_df <- data.frame(Pass = c('Ikon Pass','Epic Pass', 'Grand Targhee', 'Loveland', 'Whitefish'),
+                      pass_cost = c(1049,783,899,479,689))
+
+resort_df <- resort_df %>%
+  inner_join(pass_df, by = 'Pass')
+
+
+resort_df <- resort_df %>%
+  mutate(latitude = c(40.5888, 39.6425, 39.1863,
+                      39.6042, 45.2857, 39.4817, 
+                      39.5022, 38.8991, 40.6374,
+                      43.7888, 38.9349, 43.5966,
+                      39.6076, 39.6800,37.6308, 
+                      40.6514, 40.5818948,40.6199,
+                      39.1976,40.4850, 43.6614,
+                      36.5960,37.9363,39.6061,
+                      48.4806,39.8868),
+         longitude = c(111.6380, 105.8719, 106.8182,
+                       106.5165, 111.4012, 106.0384, 
+                       106.1497, 106.9658, 111.4783,
+                       110.9579, 119.9403, 110.8474,
+                       105.9438, 105.8979,119.0326,
+                       111.5080, 111.6552024,111.5919,
+                       120.2354,106.8317, 114.4027,
+                       105.4545,107.8466,106.3550,
+                       114.3503,105.7625))
+
+resort_df <- resort_df %>%
+  mutate(abbrev = c('Alta','Arapahoe Basin', 'Aspen',
+                    'Beaver Creek', 'Big Sky', "Breckenridge", 'Copper',
+                    'Crested Butte', 'Deer Valley', 'Grand Targhee',
+                    'Heavenly', 'Jackson Hole', "Keystone",
+                    'Loveland', 'Mammoth', 'Park City', 'Snowbird',
+                    'Solitude', 'Squaw Valley', 'Steamboat', 'Sun Valley',
+                    'Taos', 'Telluride', 'Vail', 'Whitefish', 'Winter Park'))
+
+
+wiki_url <- 'https://en.wikipedia.org/wiki/Comparison_of_North_American_ski_resorts'
+
+north_america_data <- wiki_url %>%
+  read_html() %>%
+  html_node(xpath = '//*[@id="mw-content-text"]/div[1]/table[2]') %>%
+  html_table()
+
+ski_data <- north_america_data
+ski_data <- ski_data %>%
+  rename(`Resort Name` = `Resort name and website`)
+
+
+ski_data[75,1] = 'Vail'
+ski_data[38,1] = 'Squaw Valley Alpine Meadows'
+ski_data[39,1] = 'Mammoth Mountain'
+ski_data[91,1] = 'Alta Ski Area'
+ski_data[77,1] = 'Winter Park'
+ski_data[88,1] = 'Park City'
+ski_data[89,1] = 'Deer Valley Resort'
+ski_data[121,1] = 'Aspen Snowmass'
+ski_data[37,1] = 'Breckenridge'
+ski_data[36,1] = 'Keystone'
+ski_data[40,1] = 'Heavenly'
+ski_data[33,1] = 'Loveland'
+ski_data[30,1] = 'Big Sky'
+ski_data[32,1] = 'Jackson Hole'
+ski_data[28,1] = 'Taos Ski Valley'
+ski_data[25,1] = 'Telluride'
+ski_data[26,1] = 'Arapahoe Basin Ski Area'
+ski_data[74,1] = 'Copper Mountain'
+ski_data[73,1] = 'Steamboat'
+ski_data[92,1] = 'Snowbird'
+ski_data[279,1] = 'Solitude Mountain Resort'
+ski_data[261,1] = 'Crested Butte Mountain Resort'
+ski_data[13,1] = 'Grand Targhee Resort'
+
+
+resort_df <- resort_df %>%
+  inner_join(ski_data, by = 'Resort Name')
+
+resort_df <- resort_df %>%
+  rename(weekend_cost = `Adult weekend
+lift ticket window price (USD)`)
+
+resort_df$weekend_cost <- as.numeric(gsub("\\$", "", resort_df$weekend_cost))
+resort_df$`User Rating` <- as.numeric(gsub(" R.*","\\1",resort_df$`User Rating`))
+resort_df$Beginner <- as.numeric(gsub("%.*","\\1",resort_df$Beginner))
+resort_df$Intermediate <- as.numeric(gsub("%.*","\\1",resort_df$Intermediate))
+resort_df$Advanced <- as.numeric(gsub("%.*","\\1",resort_df$Advanced))
+resort_df$Expert <- as.numeric(gsub("%.*","\\1",resort_df$Expert))
+resort_df[20, 6] <- 0
+
+
+resort_df[23, 3] <- 23
+resort_df[23, 4] <- 36
+resort_df[23, 5] <- 41
+resort_df[23, 6] <- 0
+
+# Fix Aspen
+resort_df[3, 3] <- 0
+resort_df[3, 4] <- 48
+resort_df[3, 5] <- 26
+resort_df[3, 6] <- 26
+
+resort_df$`Skiable acreage` <- as.numeric(gsub(",","",resort_df$`Skiable acreage`))
+resort_df$`Total lifts`<- as.numeric(resort_df$`Total lifts`)
+resort_df$`Total trails`<- as.numeric(resort_df$`Total trails`)
+
+resort_df$Advanced_Expert <- resort_df$Advanced + resort_df$Expert
+
+
+
+California <- read_csv('California.csv', col_names = FALSE)
+Northern_Rockies <- read_csv('Northern_Rockies.csv', col_names = FALSE)
+Utah <- read_csv('Utah.csv', col_names = FALSE, skip = 3)
+South_CO <- read_csv('South_CO.csv', col_names = FALSE)
+North_CO <- read_csv('North_CO.csv', col_names = FALSE)
+
+California <- California[5:nrow(California)-1,]
+Northern_Rockies <- Northern_Rockies[5:nrow(Northern_Rockies)-1,]
+Utah <- Utah[3:nrow(Utah)-1,]
+South_CO <- South_CO[5:nrow(South_CO)-1,]
+North_CO <- North_CO[5:nrow(North_CO)-1,]
+
+
+snow_data <- rbind(California, Northern_Rockies, Utah, South_CO, North_CO)
+snow_data %>%
+  setnames(old = c('X1','X2','X3','X4','X5','X6','X7','X8','X9','X10','X11','X12'),
+            new = c('Resort', 'elevation_range','avg_snow', 'season_stdv',
+                    'percent_6_in_days', 'Percent_months_90_in', "Percent_months_le_30_in",
+                    'avg_max_base','North','East','West','South'))
+
+
+resort_names <- data.frame(Resort = c('Sun Valley', 'Deer Valley Resort', 'Whitefish Mountain Resort',
+                                      'Taos Ski Valley', 'Aspen Snowmass', 'Telluride', 'Steamboat', 'Beaver Creek',
+                                      'Crested Butte Mountain Resort', 'Park City', 'Breckenridge',
+                                      'Jackson Hole', 'Vail','Winter Park', 'Arapahoe Basin Ski Area','Keystone',
+                                      'Mammoth Mountain','Heavenly', 'Big Sky','Alta Ski Area',
+                                      'Copper Mountain','Squaw Valley Alpine Meadows','Snowbird',
+                                      'Grand Targhee Resort','Solitude Mountain Resort','Loveland'))
+
+
+snow_data[6,1] <- 'Squaw Valley Alpine Meadows'
+snow_data[10,1] <- 'Heavenly'
+snow_data[15,1] <- 'Mammoth Mountain'
+snow_data[20,1] <- 'Whitefish Mountain Resort'
+snow_data[26,1] <- 'Big Sky'
+snow_data[27,1] <- 'Jackson Hole'
+snow_data[28,1] <- 'Sun Valley'
+snow_data[30,1] <- 'Grand Targhee Resort'
+snow_data[33,1] <- 'Alta Ski Area'
+snow_data[35,1] <- 'Snowbird'
+snow_data[39,1] <- 'Solitude Mountain Resort'
+snow_data[42,1] <- 'Park City'
+snow_data[44,1] <- 'Deer Valley Resort'
+snow_data[48,1] <- 'Aspen Snowmass'
+snow_data[50,1] <- 'Crested Butte Mountain Resort'
+snow_data[57,1] <- 'Telluride'
+snow_data[59,1] <- 'Taos Ski Valley'
+snow_data[63,1] <- 'Loveland'
+snow_data[61,1] <- 'Arapahoe Basin Ski Area'
+snow_data[64,1] <- 'Beaver Creek'
+snow_data[65,1] <- 'Steamboat'
+snow_data[67,1] <- 'Breckenridge'
+snow_data[68,1] <- 'Copper Mountain'
+snow_data[69,1] <- 'Keystone'
+snow_data[70,1] <- 'Winter Park'
+snow_data[71,1] <- 'Vail'
+
+resort_df <- resort_df %>%
+  inner_join(snow_data, by = c('Resort Name' = 'Resort'))
+
+resort_df$Percent_months_90_in <- as.numeric(gsub("%","",resort_df$Percent_months_90_in))
+resort_df$Percent_months_le_30_in <- as.numeric(gsub("%","",resort_df$Percent_months_le_30_in))
+resort_df$avg_snow <- as.numeric(resort_df$avg_snow)
+resort_df$season_stdv <- as.numeric(resort_df$season_stdv)
+resort_df$percent_6_in_days <- as.numeric(gsub("%","\\1",resort_df$percent_6_in_days))
+resort_df$avg_max_base <- as.numeric(gsub("%","\\1",resort_df$avg_max_base))
+resort_df$avg_over_stdv <- resort_df$avg_snow/resort_df$season_stdv
+
+
+##### Vertical Drop ####
+
+
+
+resort_df$`Peak elevation (ft)` <- as.numeric(str_remove_all(resort_df$`Peak elevation (ft)`, ','))
+resort_df$`Base elevation (ft)` <- as.numeric(str_remove_all(resort_df$`Base elevation (ft)`, ','))
+resort_df$`Vertical drop (ft)` <- as.numeric(str_remove_all(resort_df$`Vertical drop (ft)`, ','))
+
+resort_df[4, 20] <- '310'
+resort_df[21, 20] <- '220'
+#resort_df[4, 24] <- '310'
+#resort_df[21, 20] <- '220'
+
+resort_df$pow_per_cost = as.numeric(resort_df$`Avg annual snowfall (in)`)/resort_df$pass_cost
+
+
+resort_df <- resort_df %>%
+  select(-`Date statistics updated`)
+
+resort_df$cost_per_day <- resort_df$pass_cost / 7
+
+resort_df$true_cost <- ifelse(resort_df$cost_per_day > resort_df$weekend_cost,
+       resort_df$weekend_cost,
+       resort_df$cost_per_day)
+
+resort_df$type_pay <- ifelse(resort_df$cost_per_day > resort_df$weekend_cost,
+                              'Lift Ticket',
+                              'Season Pass')
+
+resort_df_scale <- resort_df %>%
+  mutate_if(is.numeric, scale)
+
+### For an expert scale
+
+resort_df_results <- resort_df %>%
+  mutate(rating = (resort_df_scale$avg_snow * 6) +
+  (resort_df_scale$true_cost * -6) +  # What I pay - the cost of 7 days of skiing
+  (resort_df_scale$`Total lifts` * 0.5) +  # Not a huge factor, but more lifts is nice to spread out skiers
+  (resort_df_scale$`Total trails` * 1) +  # Nice to have lots of trails
+  (resort_df_scale$`Skiable acreage` * 3) +
+  (resort_df_scale$`Vertical drop (ft)` * 3) +
+  (resort_df_scale$`Peak elevation (ft)` * 0.8) +
+  (resort_df_scale$`Base elevation (ft)` * 0.6) +
+  (resort_df_scale$Advanced_Expert * 3) +
+  (resort_df_scale$season_stdv * -1) +    # Small stdv is better because it means more predictability in the snow
+  (resort_df_scale$Percent_months_90_in * 5) +
+  (resort_df_scale$Percent_months_le_30_in * -3) +  # Bad to have lots of months with less than 30 inches
+  (resort_df_scale$percent_6_in_days * 6) + # I want a powder day!
+  (resort_df_scale$Beginner * -1) + # Dont want lots of beginner trails
+  (resort_df_scale$Intermediate * 1))  # Intermediate is fine
+
+resort_df_results <- resort_df_results %>%
+  mutate(rating0 = rating - min(rating))
+
+results_plot <- resort_df_results %>%
+  ggplot(aes(x = reorder(abbrev, rating0),
+             y = rating0,
+             fill = `State/province`)) +
+  geom_bar(stat = 'identity',
+           color = 'black') +
+  theme_bw() +
+  xlab('Resort') +
+  ylab('Rating') +
+  labs(fill = 'State') +
+  ggtitle('Rating of U.S. Ski Resorts') +
+  theme(plot.title = element_text(hjust = 0.5, face = 'bold'),
+        text = element_text(size = 12),
+        plot.subtitle = element_text(hjust = 0.5)) +
+  coord_flip() +
+  scale_fill_brewer(palette = 'Paired')
+```
+
+# Keystone Graphic
+
+```{r}
+results_plot
+```
+
+
+# Introduction
+
+I'm a skier, and I want to know where the best place to ski is.
+
+My primary research question for this analysis is:
+
+**Where should I take my ski vacation next year?**
+
+To answer this question, I will need to consider several factors, such as cost of skiing, snowfall amount and frequency, and the ski terrain itself. There is no great dataset with information about *all* aspects of ski resorts. For this reason, I needed to generate my own dataset. To do so, I scraped data from [On The Snow](http://https://www.onthesnow.com/), [Wikepedia](https://en.wikipedia.org/wiki/Comparison_of_North_American_ski_resorts), and [bestsnow.net](http://bestsnow.net/). Additionally, I manually visited several ski resort websites to imput more variables into my dataset. By conducting a qaulitative analysis of ski resort data, I'll be able to have more days like this:
+
+![](/Users/Michael/Desktop/Middlebury/MATH216/Final_Project_presentation/snow!.jpeg)
+
+and less days like this:
+![](/Users/Michael/Desktop/Middlebury/MATH216/Final_Project_presentation/no_snow.jpeg)
+
+# Methods
+
+## What resorts are we considering?
+
+There are ski resorts in all parts of the world, ranging from Alaska to Chile to Australia to Japan. If I'm constructing my own dataset, it's virtually impossible to consider all the resorts in the world or even to consider all the resorts in an individual country. For this reason, I needed to make some constraints. Here are the limitations that I am placing on this study:
+
+1. I will take a 7 day ski vacation next winter, and I plan to ski all 7 days.
+2. If I buy a season pass, I will buy it now, meaning the prices used in this study reflect current pass prices.
+3. I will only consider ski resorts in the western U.S.
+4. Because I want the best of the best, I will only consider resorts that are among the top 30 western resorts, as voted on by readers of [Ski Magazine](https://www.skimag.com/ski-resort-life/best-ski-resorts-in-the-west-2021/) for the 2020-2021 ski season.
+
+These constraints left me with 26 resorts that we can see below. (4 resorts in the ski magazine top 30 were in Canada, not meeting my criteria).
+
+```{r, include=FALSE}
+abbrev_df = data.frame('Resort' = c('Alta','Arapahoe Basin', 'Aspen',
+                   'Beaver Creek', 'Big Sky', "Breckenridge", 'Copper',
+                   'Crested Butte', 'Deer Valley', 'Grand Targhee',
+                   'Heavenly', 'Jackson Hole', "Keystone",
+                   'Loveland', 'Mammoth', 'Park City', 'Snowbird',
+                   'Solitude', 'Squaw Valley', 'Steamboat', 'Sun Valley',
+                   'Taos', 'Telluride', 'Vail', 'Whitefish', 'Winter Park'))
+```
+```{r}
+kable(abbrev_df)
+```
+
+## How will we analyze?
+
+The analysis of these ski resorts will take a twofold approach. I will begin by generating visualizations of the data, and I will interprate these visualizations and make observations. The second part will include a more quantitative approach, in which I normalize several metrics in the dataset and weight these metrics based on my preferences. This will enable me to give each resort a total "score" and from there, I could determine where to go skiing.
+
+## The data
+
+As I mentioned previously, I essentially needed to create my own dataset for this analysis. To do so, I began by scraping in data from On The Snow, a site that tracks current conditions at ski resorts throughout the world. This site also has some basic statistics for ski resorts. There was a Wikipedia page that had minimal information about North American ski resorts, and I scraped these data in to include in my dataset. I used bestsnow.net for all things snow. This site, created by actuary, statistician, and skier Tom Crocker, contains abundant snowfall data for ski resorts in the world. For one temperature map that I made, I obtained mean January temperature data for the county level for U.S. counties from the NOAA climate database. I also manually obtained data for each of the resorts' latitude and longitude, and I manually obtained ski pass data by going to the Ikon Pass and Epic Pass websites, as well as the websites of individual ski resorts. I basically created my own dataset, and the following code shows how I did that.
+
+```{r}
+setwd("~/Desktop/Middlebury/MATH216/DataSets/")
+resort_names <- data.frame(Resort = c('Sun Valley', 'Deer Valley Resort', 'Whitefish Mountain Resort',
+                                      'Taos Ski Valley', 'Aspen Snowmass', 'Telluride', 'Steamboat', 'Beaver Creek',
+                                      'Crested Butte Mountain Resort', 'Park City', 'Breckenridge',
+                                      'Jackson Hole', 'Vail','Winter Park', 'Arapahoe Basin Ski Area','Keystone',
+                                      'Mammoth Mountain','Heavenly', 'Big Sky','Alta Ski Area',
+                                      'Copper Mountain','Squaw Valley Alpine Meadows','Snowbird',
+                                      'Grand Targhee Resort','Solitude Mountain Resort','Loveland'))
+
+
+resorts <- read_csv('Resorts.csv')
+resort_df <- resorts
+
+resort_df$`Resort Name` <- gsub(",.*","\\1",resort_df$`Resort Name`)
+
+states <- read_csv('states.csv')
+
+for(i in states$State){
+  resort_df <- resort_df %>%
+    mutate(`Resort Name` = str_replace_all(resort_df$`Resort Name`, i, ''))
+}
+
+resort_df$`Resort Name` <- substr(resort_df$`Resort Name`,1,nchar(resort_df$`Resort Name`)-1)
+
+resort_df <- resort_df[resort_df$`Resort Name` %in% resort_names$Resort ,]
+
+
+
+
+
+
+resort_df <- resort_df %>%
+  select(-`Open Acreage`)
+
+resort_df <- resort_df %>%
+  mutate(Pass = c('Ikon Pass', 'Ikon Pass', 'Ikon Pass',
+                  'Epic Pass', 'Ikon Pass', 'Epic Pass', 'Ikon Pass', 'Epic Pass',
+                  'Ikon Pass', 'Grand Targhee', 'Epic Pass',
+                  'Ikon Pass', 'Epic Pass','Loveland', 'Ikon Pass','Epic Pass',
+                  'Ikon Pass','Ikon Pass', 'Ikon Pass','Ikon Pass',
+                  'Epic Pass','Ikon Pass','Epic Pass',
+                  'Epic Pass','Whitefish','Ikon Pass'))
+
+pass_df <- data.frame(Pass = c('Ikon Pass','Epic Pass', 'Grand Targhee', 'Loveland', 'Whitefish'),
+                      pass_cost = c(1049,783,899,479,689))
+
+resort_df <- resort_df %>%
+  inner_join(pass_df, by = 'Pass')
+
+
+resort_df <- resort_df %>%
+  mutate(latitude = c(40.5888, 39.6425, 39.1863,
+                      39.6042, 45.2857, 39.4817, 
+                      39.5022, 38.8991, 40.6374,
+                      43.7888, 38.9349, 43.5966,
+                      39.6076, 39.6800,37.6308, 
+                      40.6514, 40.5818948,40.6199,
+                      39.1976,40.4850, 43.6614,
+                      36.5960,37.9363,39.6061,
+                      48.4806,39.8868),
+         longitude = c(111.6380, 105.8719, 106.8182,
+                       106.5165, 111.4012, 106.0384, 
+                       106.1497, 106.9658, 111.4783,
+                       110.9579, 119.9403, 110.8474,
+                       105.9438, 105.8979,119.0326,
+                       111.5080, 111.6552024,111.5919,
+                       120.2354,106.8317, 114.4027,
+                       105.4545,107.8466,106.3550,
+                       114.3503,105.7625))
+
+resort_df <- resort_df %>%
+  mutate(abbrev = c('Alta','Arapahoe Basin', 'Aspen',
+                    'Beaver Creek', 'Big Sky', "Breckenridge", 'Copper',
+                    'Crested Butte', 'Deer Valley', 'Grand Targhee',
+                    'Heavenly', 'Jackson Hole', "Keystone",
+                    'Loveland', 'Mammoth', 'Park City', 'Snowbird',
+                    'Solitude', 'Squaw Valley', 'Steamboat', 'Sun Valley',
+                    'Taos', 'Telluride', 'Vail', 'Whitefish', 'Winter Park'))
+
+
+wiki_url <- 'https://en.wikipedia.org/wiki/Comparison_of_North_American_ski_resorts'
+
+north_america_data <- wiki_url %>%
+  read_html() %>%
+  html_node(xpath = '//*[@id="mw-content-text"]/div[1]/table[2]') %>%
+  html_table()
+
+ski_data <- north_america_data
+ski_data <- ski_data %>%
+  rename(`Resort Name` = `Resort name and website`)
+
+
+ski_data[75,1] = 'Vail'
+ski_data[38,1] = 'Squaw Valley Alpine Meadows'
+ski_data[39,1] = 'Mammoth Mountain'
+ski_data[91,1] = 'Alta Ski Area'
+ski_data[77,1] = 'Winter Park'
+ski_data[88,1] = 'Park City'
+ski_data[89,1] = 'Deer Valley Resort'
+ski_data[121,1] = 'Aspen Snowmass'
+ski_data[37,1] = 'Breckenridge'
+ski_data[36,1] = 'Keystone'
+ski_data[40,1] = 'Heavenly'
+ski_data[33,1] = 'Loveland'
+ski_data[30,1] = 'Big Sky'
+ski_data[32,1] = 'Jackson Hole'
+ski_data[28,1] = 'Taos Ski Valley'
+ski_data[25,1] = 'Telluride'
+ski_data[26,1] = 'Arapahoe Basin Ski Area'
+ski_data[74,1] = 'Copper Mountain'
+ski_data[73,1] = 'Steamboat'
+ski_data[92,1] = 'Snowbird'
+ski_data[279,1] = 'Solitude Mountain Resort'
+ski_data[261,1] = 'Crested Butte Mountain Resort'
+ski_data[13,1] = 'Grand Targhee Resort'
+
+
+resort_df <- resort_df %>%
+  inner_join(ski_data, by = 'Resort Name')
+
+resort_df <- resort_df %>%
+  rename(weekend_cost = `Adult weekend
+lift ticket window price (USD)`)
+
+resort_df$weekend_cost <- as.numeric(gsub("\\$", "", resort_df$weekend_cost))
+resort_df$`User Rating` <- as.numeric(gsub(" R.*","\\1",resort_df$`User Rating`))
+resort_df$Beginner <- as.numeric(gsub("%.*","\\1",resort_df$Beginner))
+resort_df$Intermediate <- as.numeric(gsub("%.*","\\1",resort_df$Intermediate))
+resort_df$Advanced <- as.numeric(gsub("%.*","\\1",resort_df$Advanced))
+resort_df$Expert <- as.numeric(gsub("%.*","\\1",resort_df$Expert))
+resort_df[20, 6] <- 0
+
+
+resort_df[23, 3] <- 23
+resort_df[23, 4] <- 36
+resort_df[23, 5] <- 41
+resort_df[23, 6] <- 0
+
+# Fix Aspen
+resort_df[3, 3] <- 0
+resort_df[3, 4] <- 48
+resort_df[3, 5] <- 26
+resort_df[3, 6] <- 26
+
+resort_df$`Skiable acreage` <- as.numeric(gsub(",","",resort_df$`Skiable acreage`))
+resort_df$`Total lifts`<- as.numeric(resort_df$`Total lifts`)
+resort_df$`Total trails`<- as.numeric(resort_df$`Total trails`)
+
+resort_df$Advanced_Expert <- resort_df$Advanced + resort_df$Expert
+
+
+
+California <- read_csv('California.csv', col_names = FALSE)
+Northern_Rockies <- read_csv('Northern_Rockies.csv', col_names = FALSE)
+Utah <- read_csv('Utah.csv', col_names = FALSE, skip = 3)
+South_CO <- read_csv('South_CO.csv', col_names = FALSE)
+North_CO <- read_csv('North_CO.csv', col_names = FALSE)
+
+California <- California[5:nrow(California)-1,]
+Northern_Rockies <- Northern_Rockies[5:nrow(Northern_Rockies)-1,]
+Utah <- Utah[3:nrow(Utah)-1,]
+South_CO <- South_CO[5:nrow(South_CO)-1,]
+North_CO <- North_CO[5:nrow(North_CO)-1,]
+
+
+snow_data <- rbind(California, Northern_Rockies, Utah, South_CO, North_CO)
+snow_data %>%
+  setnames(old = c('X1','X2','X3','X4','X5','X6','X7','X8','X9','X10','X11','X12'),
+            new = c('Resort', 'elevation_range','avg_snow', 'season_stdv',
+                    'percent_6_in_days', 'Percent_months_90_in', "Percent_months_le_30_in",
+                    'avg_max_base','North','East','West','South'))
+
+
+resort_names <- data.frame(Resort = c('Sun Valley', 'Deer Valley Resort', 'Whitefish Mountain Resort',
+                                      'Taos Ski Valley', 'Aspen Snowmass', 'Telluride', 'Steamboat', 'Beaver Creek',
+                                      'Crested Butte Mountain Resort', 'Park City', 'Breckenridge',
+                                      'Jackson Hole', 'Vail','Winter Park', 'Arapahoe Basin Ski Area','Keystone',
+                                      'Mammoth Mountain','Heavenly', 'Big Sky','Alta Ski Area',
+                                      'Copper Mountain','Squaw Valley Alpine Meadows','Snowbird',
+                                      'Grand Targhee Resort','Solitude Mountain Resort','Loveland'))
+
+
+snow_data[6,1] <- 'Squaw Valley Alpine Meadows'
+snow_data[10,1] <- 'Heavenly'
+snow_data[15,1] <- 'Mammoth Mountain'
+snow_data[20,1] <- 'Whitefish Mountain Resort'
+snow_data[26,1] <- 'Big Sky'
+snow_data[27,1] <- 'Jackson Hole'
+snow_data[28,1] <- 'Sun Valley'
+snow_data[30,1] <- 'Grand Targhee Resort'
+snow_data[33,1] <- 'Alta Ski Area'
+snow_data[35,1] <- 'Snowbird'
+snow_data[39,1] <- 'Solitude Mountain Resort'
+snow_data[42,1] <- 'Park City'
+snow_data[44,1] <- 'Deer Valley Resort'
+snow_data[48,1] <- 'Aspen Snowmass'
+snow_data[50,1] <- 'Crested Butte Mountain Resort'
+snow_data[57,1] <- 'Telluride'
+snow_data[59,1] <- 'Taos Ski Valley'
+snow_data[63,1] <- 'Loveland'
+snow_data[61,1] <- 'Arapahoe Basin Ski Area'
+snow_data[64,1] <- 'Beaver Creek'
+snow_data[65,1] <- 'Steamboat'
+snow_data[67,1] <- 'Breckenridge'
+snow_data[68,1] <- 'Copper Mountain'
+snow_data[69,1] <- 'Keystone'
+snow_data[70,1] <- 'Winter Park'
+snow_data[71,1] <- 'Vail'
+
+resort_df <- resort_df %>%
+  inner_join(snow_data, by = c('Resort Name' = 'Resort'))
+
+resort_df$Percent_months_90_in <- as.numeric(gsub("%","",resort_df$Percent_months_90_in))
+resort_df$Percent_months_le_30_in <- as.numeric(gsub("%","",resort_df$Percent_months_le_30_in))
+resort_df$avg_snow <- as.numeric(resort_df$avg_snow)
+resort_df$season_stdv <- as.numeric(resort_df$season_stdv)
+resort_df$percent_6_in_days <- as.numeric(gsub("%","\\1",resort_df$percent_6_in_days))
+resort_df$avg_max_base <- as.numeric(gsub("%","\\1",resort_df$avg_max_base))
+resort_df$avg_over_stdv <- resort_df$avg_snow/resort_df$season_stdv
+
+
+##### Vertical Drop ####
+
+
+
+resort_df$`Peak elevation (ft)` <- as.numeric(str_remove_all(resort_df$`Peak elevation (ft)`, ','))
+resort_df$`Base elevation (ft)` <- as.numeric(str_remove_all(resort_df$`Base elevation (ft)`, ','))
+resort_df$`Vertical drop (ft)` <- as.numeric(str_remove_all(resort_df$`Vertical drop (ft)`, ','))
+
+resort_df[4, 20] <- '310'
+resort_df[21, 20] <- '220'
+#resort_df[4, 24] <- '310'
+#resort_df[21, 20] <- '220'
+
+resort_df$pow_per_cost = as.numeric(resort_df$`Avg annual snowfall (in)`)/resort_df$pass_cost
+
+
+resort_df <- resort_df %>%
+  select(-`Date statistics updated`)
+
+resort_df$cost_per_day <- resort_df$pass_cost / 7
+
+resort_df$true_cost <- ifelse(resort_df$cost_per_day > resort_df$weekend_cost,
+       resort_df$weekend_cost,
+       resort_df$cost_per_day)
+
+resort_df$type_pay <- ifelse(resort_df$cost_per_day > resort_df$weekend_cost,
+                              'Lift Ticket',
+                              'Season Pass')
+```
+
+# The resorts
+
+This map shows the resorts that I will consider, and you can see some basic statistics about the resorts by hovering over the markers.
+
+```{r, include=FALSE}
+resort_map <- resort_df %>%
+  leaflet() %>%
+  addTiles() %>%
+  addMarkers(lat = ~latitude,          # Need a tilda always in leaflet
+             lng = ~-longitude,
+             label = ~lapply(paste('<b>', abbrev, ' </b> <br> ',
+                                   '<p> Number of Trails:', `Total trails`, 'trails <br>',
+                                   'Vertical Drop:', `Vertical drop (ft)`, 'ft. <br>',
+                                   'Skiable acreage:', `Skiable acreage`, 'acres <br>',
+                                   'Average annual snow:', avg_snow, 'in.'), htmltools::HTML),
+             labelOptions = labelOptions(
+               style = list("font-weight" = "normal", padding = "3px 8px"),
+               textsize = "15px",
+               direction = "auto")) %>%
+  setView(-96, 37.8,3)
+```
+```{r}
+resort_map
+```
+
+From the above map, it is not surprising that the resorts are confined to a few regions: the Colorado Rockies, the Northern Rockies, the Wasatch in Utah, and the Sierra Nevada in California. By hovering over the markers, we can see some key data points for the resorts we're interested in. This doesn't allow us to make any conclusions or comparisons yet, but it's a start. Notably absent regions from the analysis include the Pacific Northwest and Alaska, two locations that are known to have pretty epic skiing. 
+
+We now have a better sense of the methods and data for this analysis, so we can begin generating visualizations.
+
+# Results
+
+## Weather
+When deciding where to go on a ski vacation, I know that weather will play a huge factor. I want there to be snow, but I don't want it to be *too* cold, especially since I plan to go in January. I generated a map of county-level mean January temperature data for locations throughout the U.S. and placed the locations of the ski areas on that map. The following code shows how I did this and some data cleaning techniques that I used.
+
+```{r}
+setwd("~/Desktop/Middlebury/MATH216/DataSets/")
+county_data <- geojson_read('US_counties.json',
+                            what = 'sp')
+county_data_copy <- county_data
+
+# Get state codes
+state_url <- 'https://www.nrcs.usda.gov/wps/portal/nrcs/detail/?cid=nrcs143_013696'
+
+state_codes <- state_url %>%
+  read_html() %>%
+  html_node(xpath = '//*[@id="detail"]/table') %>%
+  html_table(convert = type.convert('string'))
+
+
+# Make the codes go together
+county_data_copy@data <- county_data_copy@data %>%
+  left_join(state_codes,
+            by = c("STATE" = 'FIPS'))
+
+county_data_copy@data$CountyID <- paste(county_data_copy@data$`Postal Code`,county_data_copy@data$COUNTY)
+
+county_data_copy@data$CountyID <- str_replace_all(county_data_copy@data$CountyID, ' ', '-')
+
+# Get a nice, clean dataset that we can use for all maps we want to create
+county_data_clean <- county_data_copy
+
+temp_data <- read_csv('Jan_temp_avg.csv',
+                      skip = 3,
+                      locale = locale(encoding = "iso-8859-1"))
+
+county_data_clean@data <- county_data_clean@data %>%
+  left_join(temp_data,
+            by = c('CountyID' = "Location ID"))
+
+color_temp <- colorBin(palette = "RdBu",
+                       domain = county_data_clean@data$`1901-2000 Mean`,
+                       bins = c(0,10,20,30,40,50,60,70,80,90),
+                       reverse = TRUE)
+
+county_data_clean %>%
+  leaflet() %>%
+  addPolygons(color = 'black',
+              fillOpacity = 0.7,
+              fillColor = ~color_temp(county_data_clean@data$`1901-2000 Mean`),
+              label = ~lapply(paste('<b>', Location, ' </b> <br> ',
+                                    '<p> 1901-2000 Mean:', `1901-2000 Mean`, '°F <br>'), htmltools::HTML),
+              labelOptions = labelOptions(
+                style = list("font-weight" = "normal", padding = "3px 8px"),
+                textsize = "15px",
+                direction = "auto"),
+              weight = 0.4) %>%
+  addMarkers(data = resort_df,
+    lat = ~latitude,          # Need a tilda always in leaflet
+             lng = ~-longitude,
+             label = ~lapply(paste('<b>', abbrev, ' </b> <br> ',
+                                   '<p> Number of Trails:', `Total trails`, 'trails <br>',
+                                   'Vertical Drop:', `Vertical drop (ft)`, 'ft. <br>',
+                                   'Skiable acreage:', `Skiable acreage`, 'acres <br>',
+                                   'Average annual snow:', avg_snow, 'in.'), htmltools::HTML),
+             labelOptions = labelOptions(
+               style = list("font-weight" = "normal", padding = "3px 8px"),
+               textsize = "15px",
+               direction = "auto")) %>%
+  setView(-96, 37.8,3) %>%
+  addLegend("bottomright",
+            pal = color_temp,                   
+            values = ~color_temp(county_data_clean@data$`1901-2000 Mean`),
+            title = 'Mean January Temperature (°F)')
+
+```
+
+Looking at the above map, most of the resorts lie in counties that have mean January temperatures of 20 °F to 30 °F, with California being on the higher end, and Colorado and the norhtern rockies being on the lower end. It's hard to make any true conclusions about this map, given that we're looking at county-level temperatures, and ski resorts, which are at high elevations, are often colder than the counties they reside in. I consider myself a pretty tough skier, so if it's a bit too cold or hot, I'd be fine with that.
+
+### Snow
+Of course, if I'm going skiing, I want snow. The data for this analysis of snow at U.S. ski areas comes from the website bestsnow.net, run by Tony Crocker, an actuary who dilligently tracks snowfall at U.S. ski resorts.
+
+When looking at snowfall data for ski resorts, we need to have some skepticism. First, it's very hard to track snowfall. Snow could compact as it falls, and resorts sometimes "over-report" their snow totals as a marketing ploy. Also, data could be coming from mid-mountain or upper-mountain, which also makes a difference (upper-mountain is generally much snowier). Here's a table showing at which point on the mountain data for my analysis is coming from. If possible, I took data from mid mountain, but at times, data came from the summit or base.
+
+```{r, include=FALSE}
+report_location = data.frame('Resort' = c('Alta','Arapahoe Basin', 'Aspen',
+                   'Beaver Creek', 'Big Sky', "Breckenridge", 'Copper',
+                   'Crested Butte', 'Deer Valley', 'Grand Targhee',
+                   'Heavenly', 'Jackson Hole', "Keystone",
+                   'Loveland', 'Mammoth', 'Park City', 'Snowbird',
+                   'Solitude', 'Squaw Valley', 'Steamboat', 'Sun Valley',
+                   'Taos', 'Telluride', 'Vail', 'Whitefish', 'Winter Park'),
+                   `Location_of_Snowfall_Report` = c('mid mountain','base', 'summit',
+                   'summit', 'mid mountain', "mid mountain", 'mid mountain',
+                   'mid mountain', 'summit', 'base',
+                   'summit', 'mid mountain', "summit",
+                   'mid mountain', 'mid mountain', 'summit', 'mid mountain',
+                   'mid mountain', 'mid mountain', 'mid mountain', 'summit',
+                   'mid mountain', 'mid mountain', 'summit', 'summit', 'mid mountain'))
+```
+```{r}
+kable(report_location, col.names = c('Resort', 'Location of Snowfall Report'))
+```
+
+It is important to take the locations of the snowfall reports into consideration when determining how good a resort is based on snow. It a mountain gets 400 in. of snow each year and reports at its base, that is more impressive than a mountain getting 400 in. of snow each year but reporting at the summit.
+
+Here, we plot average annual snowfall at our resorts, as well as the standard deviation in this average, denoted by the error bars. The overall mean annual snow for all the resorts is 341 in.
+
+```{r,include=FALSE}
+mean_snow <- mean(as.numeric(resort_df$avg_snow))
+sd_snow <- sd(as.numeric(resort_df$avg_snow))
+
+season_snow <- resort_df %>%
+  ggplot(aes(x = reorder(abbrev, as.numeric(avg_snow)),
+             y = as.numeric(avg_snow),
+             fill = `State/province`)) +
+  geom_bar(stat = 'identity',
+           color = 'black') +
+  theme_bw() +
+  xlab('Resort') +
+  ylab('Snowfall (in.)') +
+  labs(fill = 'State') +
+  ggtitle('Average Annual Snow') +
+  theme(plot.title = element_text(hjust = 0.5, face = 'bold'),
+        text = element_text(size = 12),
+        plot.subtitle = element_text(hjust = 0.5)) +
+  coord_flip() +
+  labs(subtitle = 'Mean = 341 in., sd = 83 in.') +
+  scale_fill_brewer(palette = 'Paired') +
+  geom_errorbar(aes(ymin = as.numeric(avg_snow) - as.numeric(season_stdv), 
+                    ymax = as.numeric(avg_snow) + as.numeric(season_stdv)))
+
+```
+```{r}
+season_snow
+```
+
+Judging from the above plot, Utah gets lots of snow! The Cottonwood Canyon resorts of Alta, Snowbird, and Solitude are the top 3 resorts in terms of average annual snow, while Park City and Deer Valley, which lie on the downstream side of the Wasatch mountains, get a bit less. Wyomig and California also look to be good bets for snow. Interestingly, the California resorts in this analysis have the largest standard deviation, meaning that if I go skiing at one of those places, I could be blessed with deep powder in some years, or I could be praying for snow in others. Sun Valley, the lone Idaho resort, recieves significantly less snow than all the other resorts in this study.
+
+To further consider the variability in snow, I determined the mean annual snow divided by the standard deviation of this mean annual snow. For this metric, higher numbers would denote greater chances of seeing an average snow season, while low numbers would mean that I could see an awesome year, or a pretty bad one. This metric displays snowfall consistancy. As a keep-me-honest, I scaled the width of the bars in this plot by average annual snow. This scaling is useful because accounts for a resort having a high (annual snow)/(standard deviation), but just not seeing any snow. For instance, a resort could have a mean annual snow of 75 in. and a low standard deviation, meaning it would do pretty well in this metric, but 75 in. is just not so good!
+
+```{r, include=FALSE}
+mean_stdv <- resort_df %>%
+  ggplot(aes(x = reorder(abbrev, avg_over_stdv),
+             y = avg_over_stdv,
+             fill = `State/province`,
+             width = rescale(as.numeric(avg_snow), c(0.1, 1)))) +
+  geom_bar(stat = 'identity',
+           color = 'black') +
+  labs(subtitle = 'Width of Bars Corresponds with avg. Annual Snow') +
+  theme_bw() +
+  xlab('Resort') +
+  ylab('Annual Snowfall/Standard Deviation') +
+  labs(fill = 'State') +
+  ggtitle('Average Annual Snow Divided by Standard Deviation') +
+  theme(plot.title = element_text(hjust = 0.5, face = 'bold'),
+        text = element_text(size = 12),
+        plot.subtitle = element_text(hjust = 0.5)) +
+  coord_flip() +
+  scale_fill_brewer(palette = 'Paired')
+```
+```{r}
+mean_stdv
+```
+
+Now we can really see that the California ski resorts have a snowfall variability problem. In some years, the snow could be spectacular in California, while in others, it could be bad. It's just very unpredictable. The resorts in the Rockies do pretty well for this metric, which is not a surprise, given that they get lots of snow and have a continental climate.
+
+Continuing with the theme of snowfall reliability, here's a plot of the percent of months (Dec, Jan, Feb, Mar) with more than 90 in. of snow and less than 30 in. of snow. I had to take some data cleaning steps to order the data in a proper way, which are shown here:
+
+```{r}
+percent_months <- resort_df %>%
+  select(`Resort Name`, abbrev, Percent_months_90_in, Percent_months_le_30_in, `State/province`) %>%
+  pivot_longer(c(-`Resort Name`, -abbrev, -`State/province`),
+               names_to = 'percent_type',
+               values_to = 'percent')
+
+percent_months2 <- percent_months
+
+percent_months2$abbrev <- factor(percent_months2$abbrev,
+                                    levels = rev(percent_months2 %>%
+                                                   mutate(test = ifelse(percent_type == "Percent_months_90_in",
+                                                                        percent,
+                                                                        0)) %>%
+                                                   group_by(abbrev) %>%
+                                                   summarize(percent = sum(test)) %>%
+                                                   arrange(-percent) %>%
+                                                   pull(`abbrev`)))
+```
+
+```{r, include=FALSE}
+percent_months_plot <- percent_months2 %>%
+  group_by(abbrev, `State/province`) %>%
+  ggplot(aes(x = abbrev,
+             y = percent,
+             fill = percent_type)) +
+  geom_bar(stat = "Identity",
+           position = 'dodge',
+           color = 'black',
+           width = 0.75) +
+  theme_bw() +
+  xlab('Resort') +
+  ylab('Percent of Months') +
+  ggtitle('Percent of Months With > 90 in. or < 30 in. of snow') +
+  theme(plot.title = element_text(hjust = 0.5, face = 'bold'),
+        text = element_text(size = 12),
+        plot.subtitle = element_text(hjust = 0.5)) +
+  scale_fill_manual(name = '',
+                    values = c('cornflowerblue',
+                               'coral'),
+                    labels = c('> 90 in. of Snow',
+                               '< 30 in. of Snow')) +
+  theme(legend.position="bottom") +
+  labs(subtitle = 'Months include Dec, Jan, Feb, Mar') +
+  coord_flip()
+```
+```{r}
+percent_months_plot
+```
+
+At Alta, I can count on seeing lots of snow each month during the winter, and there are very few winters where I'll see less than 30 in. of snow in a given month. Solitude, Grand Targhee, and Snowbird also do well here, having several months with > 90 in. of snow, and very few with < 30 in. Squaw Valley comes in 2nd place for percent of months with > 90 in. of snow, but it also has a lot of moths with < 30 in. Surprisingly, Keystone, which is in fairly snowy Colorado, has the least months with > 90 in. of snow.
+
+I love a good powder day. This plot shows the percent of days in December, January, February, and March where a resort receives 6 or more inches of snow.
+
+```{r, include=FALSE}
+percent_6in <- resort_df %>%
+  ggplot(aes(x = reorder(abbrev, percent_6_in_days),
+             y = percent_6_in_days,
+             fill = `State/province`)) +
+  geom_bar(stat = 'identity',
+           color = 'black') +
+  labs(subtitle = 'Days in Dec, Jan, Feb, Mar') +
+  theme_bw() +
+  xlab('Resort') +
+  ylab('% of Days') +
+  labs(fill = 'State') +
+  ggtitle('Percentage of Days that are 6 in. Powder Days') +
+  theme(plot.title = element_text(hjust = 0.5, face = 'bold'),
+        text = element_text(size = 12),
+        plot.subtitle = element_text(hjust = 0.5)) +
+  coord_flip() +
+  scale_fill_brewer(palette = 'Paired')
+```
+```{r}
+percent_6in
+```
+
+Wow! on more than 20% of days, I can expect a 6 in. powder day at Alta. Sqaw Valley, Grand Targhee, and Solitude also do pretty well for this metric. I'm surprised that Jackson Hole does not have a similar number to Grand Targhee, since those resorts are very close to each other, and that Alta and Snowbird don't have similar numbers, since they're also pretty close. Maybe this has to do with reporting discrepancies.
+
+
+## Cost of the Trip
+
+Being as expensive as it is, cost is an important factor to consider when planning a ski trip. First, I'll need to decide if I want to buy a pass or day tickets. I'll assume that I'll ski for 7 days.
+
+### Pass
+
+If I just buy a pass, I need to pay one fixed upfront cost.
+```{r,include=FALSE}
+pass_price <- resort_df %>%
+  ggplot(aes(x = reorder(abbrev, pass_cost),
+             y = pass_cost,
+             fill = factor(Pass, 
+                           levels=c("Ikon Pass",'Epic Pass','Grand Targhee',"Loveland",'Whitefish')))) +
+  geom_bar(stat = 'identity',
+           color = 'black') +
+  xlab('Resort') +
+  ylab('Cost ($)') +
+  theme_bw() +
+  #theme(axis.text.x = element_text(angle = 90)) +
+  ggtitle('Pass Cost and Type at U.S. Ski Areas') +
+  theme(plot.title = element_text(hjust = 0.5, face = 'bold'),
+        text = element_text(size = 12)) +
+  labs(fill = 'Pass') +
+  scale_fill_manual(values = c('cornflowerblue',
+                               'coral',
+                               'cadetblue',
+                               'darkorchid',
+                               'darkolivegreen3')) +
+  coord_flip()
+```
+```{r}
+pass_price
+```
+
+The Ikon Pass is clearly the most expensive, with Loveland's season pass being the cheapest out of the resorts I'm considering.
+
+### Lift Ticket
+
+I could only find reliable data for the cost of a weekend ski ticket, so the following plot displays the weekend day ticket price for various ski resorts if you purchase at the ticket window. Of course, this does not account for cheaper tickets on the weekdays, or a 7 day bundle of tickets, which would also be cheaper. The following plot shows weekend ticket price, with the bars filled by the season pass type.
+
+```{r, include=FALSE}
+weekend_price <- resort_df %>%
+  ggplot(aes(x = reorder(abbrev, weekend_cost),
+             y = weekend_cost,
+             fill = factor(Pass, 
+                           levels=c("Ikon Pass",'Epic Pass','Grand Targhee',"Loveland",'Whitefish')))) +
+  geom_bar(stat = 'identity',
+           color = 'black') +
+  theme_bw() +
+  xlab('Resort') +
+  ylab('Ticket Cost ($)') +
+  labs(fill = 'Pass') +
+  scale_fill_manual(values = c('cornflowerblue',
+                               'coral',
+                               'cadetblue',
+                               'darkorchid',
+                               'darkolivegreen3')) +
+  ggtitle('Weekend Ticket Cost and Season Pass Type') +
+  theme(plot.title = element_text(hjust = 0.5, face = 'bold'),
+        text = element_text(size = 12)) +
+  coord_flip()
+```
+```{r}
+weekend_price
+```
+
+Wow! Some resorts, like Vail, Beaver Creek, and Deer Valley are really expensive if you just buy a day ticket. Unsurprisingly, the resorts that are not linked to a large corperation (Grand Targhee, Loveland, and Whitefish), have much cheaper ticket prices. In some cases, it may be better for me to purchase a season pass than a ticket, even if I only intend to ski 7 days. The following plot shows the cost of skiing for 7 days, and it indicates the optimal ticketing option in white text.
+
+```{r,include=FALSE}
+cost_7_days <- resort_df %>%
+  ggplot(aes(x = reorder(abbrev, true_cost),
+             y = true_cost * 7,
+             fill = Pass)) +
+  geom_bar(stat = 'identity',
+           color = 'black') +
+  geom_text(aes(x = reorder(abbrev, true_cost),
+                y = true_cost * 7,
+                label = type_pay),
+            nudge_y = -120,
+            #angle = 90,
+            size = 3,
+            color = 'white') +
+  theme_bw() +
+  xlab('Resort') +
+  ylab('Cost ($)') +
+  labs(fill = 'Pass') +
+  ggtitle('Total Cost of 7 Days of Skiing') +
+  theme(plot.title = element_text(hjust = 0.5, face = 'bold'),
+        text = element_text(size = 12),
+        plot.subtitle = element_text(hjust = 0.5)) +
+  scale_fill_manual(values = c('coral',
+                               'cadetblue',
+                               'cornflowerblue',
+                               'darkorchid',
+                               'darkolivegreen3')) +
+  labs(subtitle = 'Cheaper Ticketing Option Indicated in White Text') +
+  coord_flip()
+```
+```{r}
+cost_7_days
+```
+
+At many resorts, it will be cheaper for me to buy a season pass, even if I only ski 7 days. This is especially true at resorts on the Epic Pass, which only costs \$783. Comparing that to the Ikon pass, which costs \$1,049, we can see that for some Ikon Pass resorts, it makes more sense to buy a lift ticket. Loveland has an extremely cheap season pass cost, so it makes the most sense to purchase a pass there.
+
+### Powder Per Cost
+
+Here's a neat metric that I've generated called powder per cost. This metric takes the average annual snowfall at ski resorts and divides it by the season pass cost. A higher number will indicate more powder per the cost of the pass.
+
+```{r,include=FALSE}
+pow_per_cost2 <- resort_df %>%
+  ggplot(aes(x = reorder(abbrev, pow_per_cost),
+             y = pow_per_cost,
+             fill = Pass)) +
+  geom_bar(stat = 'identity',
+           color = 'black') +
+  theme_bw() +
+  xlab('Resort') +
+  ylab('Average Annual Snow per Pass Cost (in./$)') +
+  ggtitle('Powder per Cost') +
+  theme(plot.title = element_text(hjust = 0.5, face = 'bold'),
+        text = element_text(size = 12)) +
+scale_fill_manual(name = 'Pass',
+                  values = c('coral',
+                               'cadetblue',
+                               'cornflowerblue',
+                               'darkorchid',
+                               'darkolivegreen3')) +
+  coord_flip()
+```
+```{r}
+pow_per_cost2
+```
+
+Loveland, located in Colorodo and not affiliated with any conglomerate, does much better than any other resort in this metric. At Deer Valley, a pricy resort in Utah, you pay a lot, get good food and immaculate service, but not much of what you're paying for is going towards the snow. Interestingly, Utah's Cottonwood Canyon resorts (Alta, Solitude, and Snowbird), which are on the Ikon Pass, perform better in powder per cost than Epic Pass resorts in Utah or Colorado, despite the Ikon Pass being $266 more than the Epic Pass. This reflects the abundant snowfall that the Cottonwood Canyon resorts receive.
+
+## The Skiing
+
+### Terrain
+If I'm going skiing, I want a challenge. The following plot displays the percentage of different terrain types at U.S. ski resorts. The code displays the work needed to get the data in an ideal format.
+
+```{r}
+terrain_breakdown <- resort_df %>%
+  select(`Resort Name`, abbrev, Beginner, Intermediate, Advanced, Expert) %>%
+  pivot_longer(c(-`Resort Name`, -abbrev),
+               names_to = 'terrain_type',
+               values_to = 'percent')
+
+terrain_breakdown3 <- terrain_breakdown
+
+terrain_breakdown3$abbrev <- factor(terrain_breakdown3$abbrev,
+                                    levels = rev(terrain_breakdown3 %>%
+                                                   mutate(test = ifelse(terrain_type == "Expert",
+                                                                        percent,
+                                                                        0)) %>%
+                                                   group_by(abbrev) %>%
+                                                   summarize(percent = sum(test)) %>%
+                                                   arrange(-percent) %>%
+                                                   pull(`abbrev`)))
+
+
+```
+
+```{r,include=FALSE}
+breakdown_red_black <- terrain_breakdown3 %>%
+  group_by(abbrev) %>%
+  ggplot(aes(x = abbrev,
+             y = as.numeric(percent),
+             fill = factor(terrain_type,
+                           levels=c("Expert",'Advanced','Intermediate',"Beginner")))) +
+  geom_bar(stat = 'identity',
+           position = 'stack',
+           color = 'black') +
+  theme_bw() +
+  xlab('Resort') +
+  ylab('Percentage') +
+  scale_fill_manual(values = c('Black',
+                               'Red',
+                               'Blue',
+                               'darkGreen'),
+                    labels = c('Double Black',
+                               'Black Diamond',
+                               'Blue',
+                               'Green')) +
+  labs(fill = 'Terrain Type') +
+  ggtitle('Percentage of Terrain Type at U.S. Ski Resorts') +
+  theme(plot.title = element_text(hjust = 0.5, face = 'bold'),
+        text = element_text(size = 12)) +
+  coord_flip()
+```
+```{r}
+breakdown_red_black
+```
+
+
+Examining this plot carefully, we can see that certain resorts, like Alta and Squaw Valley, have no expert terrain. That can't be right! Those resorts are known for their challenge. This must come up due to how resorts rate their terrain. I modified the data slightly to combine advanced and expert terrain together to better understand the degree of challenge at different resorts.
+
+```{r,include=FALSE}
+terrain_breakdown2 <- resort_df %>%
+  select(`Resort Name`, abbrev, Beginner, Intermediate, Advanced_Expert) %>%
+  pivot_longer(c(-`Resort Name`, -abbrev),
+               names_to = 'terrain_type',
+               values_to = 'percent')
+
+terrain_breakdown4 <- terrain_breakdown2
+
+terrain_breakdown4$abbrev <- factor(terrain_breakdown4$abbrev,
+                                    levels = rev(terrain_breakdown4 %>%
+                                                   mutate(test = ifelse(terrain_type == "Advanced_Expert",
+                                                                        percent,
+                                                                        0)) %>%
+                                                   group_by(abbrev) %>%
+                                                   summarize(percent = sum(test)) %>%
+                                                   arrange(-percent) %>%
+                                                   pull(abbrev)))
+
+
+breakdown_black <- terrain_breakdown4 %>%
+  group_by(abbrev) %>%
+  ggplot(aes(x = abbrev,
+             y = percent,
+             fill = factor(terrain_type, 
+                           levels=c('Advanced_Expert','Intermediate',"Beginner")))) +
+  geom_bar(stat = 'identity',
+           position = 'stack',
+           color = 'black') +
+  theme_bw() +
+  xlab('Resort') +
+  ylab('Percentage') +
+  scale_fill_manual(values = c('Black',
+                               'Blue',
+                               'darkGreen'),
+                    labels = c('Black and Double Black',
+                               'Blue',
+                               'Green')) +
+  labs(fill = 'Terrain Type') +
+  ggtitle('Percentage of Terrain Type at U.S. Ski Resorts') +
+  theme(plot.title = element_text(hjust = 0.5, face = 'bold'),
+        text = element_text(size = 12)) +
+  coord_flip()
+```
+```{r}
+breakdown_black
+```
+
+Now we get a better sence of the challenge at the resorts I'm considering. If I ski Sun Valley, it looks like I'll be stuck to the groomers. At Aspen, on the other hand, I'll be ripping blues and blacks. For the most variety of challenging terrain, I should head to Arapahoe Basin. Jackson Hole has very few beginner trails. If I want to avoid running into people who are first learning to ski, I should head there.
+
+### Vertical Drop
+
+When I go skiing, I want to be able to ski for a long time without needing to constantly ride the lifts. If I could ski for 6,000 vertical feet from the top of a mountain to the bottom, that would be better than only skiing for 1,000 vertical feet. To visualize the vertical drop at ski resorts, I generated this plot, which displays the base and summit elevation, as well as the vertical drop.
+
+```{r,include=FALSE}
+vertical <- resort_df %>%
+  ggplot() +
+  geom_point(aes(x = reorder(abbrev, as.numeric(`Peak elevation (ft)`)),
+                 y = as.numeric(`Base elevation (ft)`)),
+             size = 2,
+             color = 'black') +
+  geom_text(aes(x = reorder(abbrev, as.numeric(`Peak elevation (ft)`)),
+                y = as.numeric(`Peak elevation (ft)`),
+                label = paste(`Peak elevation (ft)`, 'ft.')),
+            nudge_y = 1200,
+            #angle = 90,
+            size = 3) +
+  geom_point(aes(x = abbrev,
+                 y = as.numeric(`Peak elevation (ft)`)),
+             size = 2,
+             color = 'black') +
+  geom_text(aes(x = reorder(abbrev, as.numeric(`Peak elevation (ft)`)),
+                y = as.numeric(`Base elevation (ft)`),
+                label = paste(`Base elevation (ft)`, 'ft.')),
+            nudge_y = -1200,
+            #angle = 90,
+            size = 3) +
+  theme_classic() +
+  xlab('Resort') +
+  ylab('Elevation (ft.)') +
+  ggtitle('Vertical Drop and Summit and Base Elevation') +
+  theme(plot.title = element_text(hjust = 0.5, face = 'bold'),
+        text = element_text(size = 12)) +
+  geom_segment(aes(x = abbrev, y = as.numeric(`Base elevation (ft)`),
+                   xend = abbrev, yend = as.numeric(`Peak elevation (ft)`),
+                   color = `Vertical drop (ft)`),
+               size = 1, lineend = "butt") +
+  scale_color_gradient(name = 'Vertical Drop (ft.)',
+                       low = "yellow", high = "red") +
+  coord_flip() +
+  ylim(2800, 14700) +
+  theme(legend.position="right")
+```
+```{r}
+vertical
+```
+
+At Telluride, Big Sky, and Jackson Hole, I could take long runs without stopping. The vertical drop at those resorts is huge! We can see that the Colorado resorts are at very high elevations, which is not a huge problem for me, but if someone is prone to altitude sickness, they should take that into account.
+
+
+### Acerage
+
+Bigger is better when it comes to skiing. If I could explore all types of locations on the ski mountain, that's more exciting than being confined to a small slope. This plot dsplays skiable acreage at U.S. ski resorts.
+
+```{r,include=FALSE}
+acreage <- resort_df %>%
+  ggplot(aes(x = reorder(abbrev, `Skiable acreage`),
+             y = `Skiable acreage`,
+             fill = `State/province`)) +
+  geom_bar(stat = 'identity',
+           color = 'black') +
+  theme_bw() +
+  xlab('Resort') +
+  ylab('Skiable Acreage') +
+  labs(fill = 'State') +
+  ggtitle('Skiable Acreage at U.S. Ski Resorts') +
+  theme(plot.title = element_text(hjust = 0.5, face = 'bold'),
+        text = element_text(size = 12)) +
+  scale_fill_brewer(palette = 'Paired') +
+  coord_flip()
+```
+```{r}
+acreage
+```
+
+Park City is the big winner here! The Squaw Valley data point includes skiable acreage for both Squaw Valley and Alpine Meadows, which are two resorts right next to each other that will be connected by gondola for next season. There is no clear trend in the amount of skiable acreage by the state that the resort is located in, although the California resorts have lots of acerage.
+
+### Trails
+
+Something else to consider is the trails I'll be skiing. If a mountain has only 50 trails, I may get bored skiing the same terrain over and over. If I have 200 trails to explore, that's definitely a plus.
+
+```{r,include=FALSE}
+trails <- resort_df %>%
+  ggplot(aes(x = reorder(abbrev, as.numeric(`Total trails`)),
+             y = as.numeric(`Total trails`),
+             fill = `State/province`)) +
+  geom_bar(stat = 'identity',
+           color = 'black') +
+  theme_bw() +
+  xlab('Resort') +
+  ylab('Trails') +
+  labs(fill = 'State') +
+  ggtitle('Number of Trails at U.S. Ski Resorts') +
+  theme(plot.title = element_text(hjust = 0.5, face = 'bold'),
+        text = element_text(size = 12)) +
+  scale_fill_brewer(palette = 'Paired') +
+  coord_flip()
+```
+```{r}
+trails
+```
+
+It makes sense that the resorts with lots of skiable acreage also have lots of trails. Once again, Park City is the winner here, with Big Sky and Squaw Valley also doing quite well. The other Utah resorts, which have done pretty well in the analysis so far, don't have that many trails.
+
+### Lifts
+
+Less important, but still something to consider, is the number of lifts that I'll be skiing. Here's what we find.
+```{r,include=FALSE}
+lifts <- resort_df %>%
+  ggplot(aes(x = reorder(abbrev, as.numeric(`Total lifts`)),
+             y = as.numeric(`Total lifts`),
+             fill = `State/province`)) +
+  geom_bar(stat = 'identity',
+           color = 'black') +
+  theme_bw() +
+  xlab('Resort') +
+  ylab('Number of Lifts') +
+  labs(fill = 'State') +
+  ggtitle('Number of Lifts at U.S. Ski Resorts') +
+  theme(plot.title = element_text(hjust = 0.5, face = 'bold'),
+        text = element_text(size = 12)) +
+  scale_fill_brewer(palette = 'Paired') +
+  coord_flip()
+```
+```{r}
+lifts
+```
+
+No big surprise here! The bigger resorts in terms of acerage and numer of trails have more lifts.
+
+## Who wins so far?
+
+After completing these visualizations, we can make some preliminary conclusions about where I should go skiing. Alta and Snowbird have fared well so far, as well as Jackson Hole, Telluride, Grand Targhee, and Loveland. This is solely based on visualizations of the data, so it is now time to get a bit more quantitative.
+
+## Quantitative
+
+These visualizations that I've generated are helpful, and of course, some resorts do very well for some aspects of the ski experience, while others do well for other aspects. It's so hard to decide where I should go skiing! To solve my problem, I will normalize several factors, and weight these factors based on my personal preferences (I like snow, challenge, and lots of terrain, and I don't like expensive prices.) Also note that I will not include metrics that contain more than one variable in the dataset (like powder per cost or average snow divided by standard deviation), since this would overweight multiple varibles.
+
+```{r}
+resort_df_scale <- resort_df %>%
+  mutate_if(is.numeric, scale)
+
+### For an expert scale
+
+resort_df_results <- resort_df %>%
+  mutate(rating = (resort_df_scale$avg_snow * 6) +
+  (resort_df_scale$true_cost * -6) +  # What I pay - the cost of 7 days of skiing
+  (resort_df_scale$`Total lifts` * 0.5) +  # Not a huge factor, but more lifts is nice to spread out skiers
+  (resort_df_scale$`Total trails` * 1) +  # Nice to have lots of trails
+  (resort_df_scale$`Skiable acreage` * 3) +
+  (resort_df_scale$`Vertical drop (ft)` * 3) +
+  (resort_df_scale$`Peak elevation (ft)` * 0.8) +
+  (resort_df_scale$`Base elevation (ft)` * 0.6) +
+  (resort_df_scale$Advanced_Expert * 3) +
+  (resort_df_scale$season_stdv * -1) +    # Small stdv is better because it means more predictability in the snow
+  (resort_df_scale$Percent_months_90_in * 5) +
+  (resort_df_scale$Percent_months_le_30_in * -3) +  # Bad to have lots of months with less than 30 inches
+  (resort_df_scale$percent_6_in_days * 6) + # I want a powder day!
+  (resort_df_scale$Beginner * -1) + # Dont want lots of beginner trails
+  (resort_df_scale$Intermediate * 1))  # Intermediate is fine
+
+resort_df_results <- resort_df_results %>%
+  mutate(rating0 = rating - min(rating))
+  
+
+rankings <- resort_df_results %>%
+  select(abbrev, `State/province`, Pass, type_pay, rating0) %>%
+  arrange(-rating0) %>%
+  rename('Resort' = 'abbrev',
+         'Rating' = 'rating0',
+         'State' = 'State/province',
+         'Optimal Purchase' = 'type_pay')
+
+kable(rankings, caption = 'Ratings of ski resorts based on my preferences.')
+```
+
+The table above displays a rating scale based on my preferances. I standardized the rating system, so that the worst resort (Sun Valley), has a rating of 0. It looks like next winter I should hop on a plane to ski in Utah. Alta, Snowbird, and Solitude are the top three resorts in this analysis, largely due to their affordable prices (I only need to buy a lift ticket - not a full Ikon Pass), their variable terrain, and their abundant snowfall. Alta beats snowbird by 5 ranking points in the analysis. Something that was not accounted for in the analysis is that Alta and Snowbird are essentially right next to each other, so I could be able to ski my top two resorts if I wanted to. The Colorado resorts don't do as well in my ranking system since they don't get as much snow as places in Utah, California, or Wyoming. Deer Valley, Aspen, and Sun Valley presumably don't do as well due to their minimal snow and expensive prices. Copper mountain does not have that much advanced terrain, so it likely does not do as well because of this. Steamboat and Whitefish are the most average resorts in my analysis.
+
+Here is a plot showing my results:
+```{r}
+results_plot +
+  geom_text(aes(x = reorder(abbrev, rating0),
+                y = rating0,
+                label = round(rating0, digits = 2)),
+                nudge_y = 4)
+```
+
+While Alta, Snowbird, or Solitude would be the best places for me to take a ski vacation next year, it is important to note that the numbers could easily change if I modified my weighting factors. For instance, if I valued intermmediate terrain more (I want to ski lots of groomers), these resorts may not do as well. Or if I valued price a lot more, Loveland would probably do a lot better.
+
+It looks like it's time for me to buy lift tickets to head to Alta next year!
+
+# Conclusion
+
+The goal of this analysis was to determine where I should go skiing next year. To do so, I considered 26 of the best western U.S. ski resorts, and I generated visualizations and a qualitative analysis of the resorts based on my preferences. From my visualizations, I found that Alta, Snowbird, Jackson Hole, Telluride, Grand Targhee, and Loveland would be good resorts for me to visit. And from my qualitative analysis, Alta, Snowbird, and Solitude were the winners. The big takeaway is that I should go skiing in Utah next year!
+
+This analysis does contain its flaws. In a ski vacation, there are so many variables to consider - of course, I was not able to include all of them in this analysis, especially since I generated a dataset from scratch. Notably lacking are hotel prices, traval prices, travel time, food prices, number of resort visitors per year (an indicator of crouds), among others. While I do lack several key factors, I think this analysis is robust enough to gain a solid understanding of the resorts I'm considering. Another factor that I can't possibly quantify is the character and vibe at a resort. Are the skiers friendly? Could I hear live music at the end of the day? The character at a resort is an important factor to consider when thinking about the whole ski experience. The enjoyment that one gets while skiing at different resorts is very subjective, and to truly be able to pick the *best* resort, I need to go and experience them for myself. However, this analysis is a good start.
